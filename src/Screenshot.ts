@@ -71,46 +71,25 @@ class Screenshot {
   }
 
   /**
-   * Captures only the terminal content area (excluding window decorations).
+   * Captures the current iTerm2 window by its window id.
+   *
+   * Uses `screencapture -l<windowId>` which captures the window's pixels from
+   * the WindowServer. This correctly captures iTerm even when other windows
+   * are on top of it, and does not require iTerm to be focused.
+   *
+   * iTerm2's AppleScript `id of current window` returns the CGWindowID, which
+   * is exactly what `screencapture -l` expects.
    */
   private async captureTerminalRegion(tempPath: string): Promise<void> {
-    // Use multiple -e flags for proper multi-line AppleScript
-    const appleScriptLines = [
-      'tell application "iTerm2"',
-      '  tell current window',
-      '    set winBounds to bounds',
-      '    set {x1, y1, x2, y2} to winBounds',
-      '    -- Calculate terminal region (account for window decorations)',
-      '    -- iTerm typically has ~40pt title bar and ~2px borders',
-      '    set titleBarHeight to 40',
-      '    set borderWidth to 2',
-      '    set termX to x1 + borderWidth',
-      '    set termY to y1 + titleBarHeight',
-      '    set termWidth to (x2 - x1) - (borderWidth * 2)',
-      '    set termHeight to (y2 - y1) - titleBarHeight - borderWidth',
-      '    return termX & "," & termY & "," & termWidth & "," & termHeight',
-      '  end tell',
-      'end tell'
-    ];
-
-    const scriptArg = appleScriptLines.map(line => `-e '${line.replace(/'/g, "'\\''")}'`).join(' ');
-    const { stdout } = await this._execPromise(`osascript ${scriptArg}`);
-
-    const bounds = this.parseBounds(stdout.trim());
-    await this._execPromise(`screencapture -R${bounds} -x "${tempPath}"`);
-  }
-
-  /**
-   * Parse bounds string from AppleScript into screencapture format.
-   * AppleScript returns "x, y, width, height" but screencapture needs "x,y,width,height".
-   */
-  private parseBounds(boundsStr: string): string {
-    // Extract numbers from the string, handling various formats
-    const numbers = boundsStr.match(/-?\d+(\.\d+)?/g);
-    if (!numbers || numbers.length < 4) {
-      throw new Error(`Invalid bounds output from AppleScript: ${boundsStr}`);
+    const { stdout } = await this._execPromise(
+      `osascript -e 'tell application "iTerm2" to id of current window'`
+    );
+    const windowId = stdout.trim();
+    if (!/^\d+$/.test(windowId)) {
+      throw new Error(`Unexpected iTerm2 window id: "${windowId}"`);
     }
-    return numbers.slice(0, 4).join(',');
+    // -l: window id, -x: no sound, -o: exclude shadow (cleaner image)
+    await this._execPromise(`screencapture -l${windowId} -x -o "${tempPath}"`);
   }
 }
 

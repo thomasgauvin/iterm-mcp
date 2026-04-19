@@ -14,9 +14,12 @@ describe('Screenshot', () => {
     mockUnlink = jest.fn();
 
     // Default mock responses
+    //
+    // Note: iTerm2's `id of current window` returns a CGWindowID (e.g. 37529),
+    // which is what `screencapture -l` expects as its window argument.
     mockExecPromise.mockImplementation((command: string) => {
       if (command.includes('osascript')) {
-        return Promise.resolve({ stdout: '100,200,800,600\n', stderr: '' });
+        return Promise.resolve({ stdout: '37529\n', stderr: '' });
       } else if (command.includes('screencapture')) {
         return Promise.resolve({ stdout: '', stderr: '' });
       }
@@ -84,5 +87,29 @@ describe('Screenshot', () => {
 
     // Should not throw cleanup errors
     await expect(screenshot.capture()).rejects.toThrow('Failed to capture screenshot');
+  });
+
+  test('capture uses screencapture -l<windowId> from iTerm window id', async () => {
+    await screenshot.capture();
+
+    const screencaptureCall = mockExecPromise.mock.calls.find(call =>
+      call[0].includes('screencapture')
+    );
+    expect(screencaptureCall).toBeDefined();
+    // Should capture by window id (covers overlapping windows) rather than by
+    // screen region (which would miss content behind overlapping apps).
+    expect(screencaptureCall[0]).toMatch(/screencapture -l37529/);
+    expect(screencaptureCall[0]).not.toMatch(/-R/);
+  });
+
+  test('capture rejects non-numeric window id from AppleScript', async () => {
+    mockExecPromise.mockImplementation((command: string) => {
+      if (command.includes('osascript')) {
+        return Promise.resolve({ stdout: 'not-a-number\n', stderr: '' });
+      }
+      return Promise.resolve({ stdout: '', stderr: '' });
+    });
+
+    await expect(screenshot.capture()).rejects.toThrow(/Unexpected iTerm2 window id/);
   });
 });
