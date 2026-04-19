@@ -133,15 +133,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "take_screenshot": {
       const screenshot = new Screenshot();
       const result = await screenshot.capture();
-      
+
+      // Per MCP spec (https://modelcontextprotocol.io/specification/…/server/tools#image-content),
+      // image content blocks use the flat shape { type, data, mimeType } — NOT the
+      // Anthropic SDK shape { type, source: { type, media_type, data } }.
       return {
         content: [{
           type: "image",
-          source: {
-            type: "base64",
-            media_type: result.mimeType,
-            data: result.base64Data
-          }
+          data: result.base64Data,
+          mimeType: result.mimeType
         }]
       };
     }
