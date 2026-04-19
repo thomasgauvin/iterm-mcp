@@ -9,6 +9,7 @@ import {
 import CommandExecutor from "./CommandExecutor.js";
 import TtyOutputReader from "./TtyOutputReader.js";
 import SendControlCharacter from "./SendControlCharacter.js";
+import Screenshot from "./Screenshot.js";
 
 const server = new Server(
   {
@@ -71,6 +72,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
           required: ["letter"]
         }
+      },
+      {
+        name: "take_screenshot",
+        description: "Captures a screenshot of the active iTerm terminal tab and returns it as base64-encoded PNG. Note: only works on macOS.",
+        inputSchema: {
+          type: "object",
+          properties: {}
+        }
       }
     ]
   };
@@ -118,6 +127,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         content: [{
           type: "text",
           text: `Sent control character: Control-${letter.toUpperCase()}`
+        }]
+      };
+    }
+    case "take_screenshot": {
+      const screenshot = new Screenshot();
+      const result = await screenshot.capture();
+      
+      return {
+        content: [{
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: result.mimeType,
+            data: result.base64Data
+          }
         }]
       };
     }

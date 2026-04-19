@@ -25,6 +25,7 @@ A Model Context Protocol server that provides access to your iTerm session.
 - `write_to_terminal` - Writes to the active iTerm terminal, often used to run a command. Returns the number of lines of output produced by the command.
 - `read_terminal_output` - Reads the requested number of lines from the active iTerm terminal.
 - `send_control_character` - Sends a control character to the active iTerm terminal.
+- `take_screenshot` - Captures a screenshot of the active iTerm terminal tab and returns it as base64-encoded PNG (supports vision-capable models like GPT-4V and Claude). **macOS only.**
 
 ### Requirements
 
